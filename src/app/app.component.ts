@@ -1,14 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, RouterOutlet } from '@angular/router';
-import { MatSidenavModule } from '@angular/material/sidenav';
-import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatListModule } from '@angular/material/list';
+import { SharedMaterialModule } from './shared-material.module';
+import { ChatService } from './chat.service';
 
 @Component({
   selector: 'app-root',
@@ -16,12 +12,7 @@ import { MatListModule } from '@angular/material/list';
   imports: [
     CommonModule,
     RouterOutlet,
-    MatButtonModule,
-    MatInputModule,
-    MatCardModule,
-    MatIconModule,
-    MatListModule,
-    MatSidenavModule,
+    SharedMaterialModule,
     HttpClientModule,
     FormsModule,
     CommonModule,
@@ -31,35 +22,27 @@ import { MatListModule } from '@angular/material/list';
   styleUrl: './app.component.css',
 })
 export class AppComponent implements OnInit {
-  title = 'chatbotClient';
-
   chatSessions: any[] = [];
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private chatService: ChatService, private router: Router) {}
 
   ngOnInit() {
     this.loadChatSessions();
   }
 
   loadChatSessions() {
-    this.http
-      .get('http://localhost:5164/sessions')
-      .subscribe((sessions: any) => {
-        this.chatSessions = sessions;
-      });
+    this.chatService.getChatSessions().subscribe((sessions) => {
+      this.chatSessions = sessions;
+    });
   }
 
   createNewChat() {
     const name = prompt('Enter a name for the new chat:');
     if (name) {
-      this.http
-        .post('http://localhost:5164/sessions', JSON.stringify(name), {
-          headers: { 'Content-Type': 'application/json' },
-        })
-        .subscribe((newSession: any) => {
-          this.chatSessions.push(newSession);
-          this.router.navigate(['/chat', newSession.id]);
-        });
+      this.chatService.createChatSession(name).subscribe((newSession) => {
+        this.chatSessions.push(newSession);
+        this.router.navigate(['/chat', newSession.id]);
+      });
     }
   }
 

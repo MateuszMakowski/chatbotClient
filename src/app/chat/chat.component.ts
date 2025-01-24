@@ -1,44 +1,42 @@
-import { HttpClient } from '@angular/common/http';
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatInputModule } from '@angular/material/input';
-import { MatCardModule } from '@angular/material/card';
-import { MatIconModule } from '@angular/material/icon';
-import { MatListModule } from '@angular/material/list';
 import { HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { SharedMaterialModule } from '../shared-material.module';
+import { ChatService } from '../chat.service';
+
+export interface ChatMessage {
+  originalBotResponse: string;
+  id: number;
+  userMessage: string;
+  botResponse: string;
+  rating?: number;
+}
 
 @Component({
   selector: 'app-chat',
   standalone: true,
-  imports: [
-    MatButtonModule,
-    MatInputModule,
-    MatCardModule,
-    MatIconModule,
-    MatListModule,
-    HttpClientModule,
-    FormsModule,
-    CommonModule,
-  ],
+  imports: [SharedMaterialModule, FormsModule, CommonModule, HttpClientModule],
   templateUrl: './chat.component.html',
   styleUrl: './chat.component.css',
 })
 export class ChatComponent implements OnInit, OnDestroy {
-  messages: any[] = [];
+  messages: ChatMessage[] = [];
   userMessage: string = '';
   sessionId: number | null = null;
   private routeSub: Subscription | null = null;
-
-  private currentInterval: any = null;
+  private typingInterval: any = null;
   isTypingInProgress: boolean = false;
 
-  constructor(private http: HttpClient, private route: ActivatedRoute) {}
+  constructor(
+    private chatService: ChatService,
+    private route: ActivatedRoute
+  ) {}
 
   ngOnInit() {
+    // Pobierz sessionId z parametrów URL
     this.routeSub = this.route.paramMap.subscribe((params) => {
       const sessionId = params.get('sessionId');
       this.sessionId = sessionId ? parseInt(sessionId, 10) : null;
@@ -52,9 +50,12 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    // Upewnij się, że subskrypcja jest anulowana
+    // Anulowanie subskrypcji i interwałów
     if (this.routeSub) {
       this.routeSub.unsubscribe();
+    }
+    if (this.typingInterval) {
+      clearInterval(this.typingInterval);
     }
   }
 
@@ -64,107 +65,84 @@ export class ChatComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.http
-      .get('http://localhost:5164/history', {
-        params: { sessionId: this.sessionId.toString() },
-      })
-      .subscribe(
-        (data: any) => {
-          this.messages = data;
-        },
-        (error) => {
-          console.error('Failed to load chat history:', error);
-        }
-      );
-  }
-
-  sendMessage() {
-    if (!this.sessionId || this.sessionId <= 0) {
-      console.error('Invalid session ID: ', this.sessionId);
-      return;
-    }
-
-    this.http
-      .post(`http://localhost:5164/send`, JSON.stringify(this.userMessage), {
-        params: { sessionId: this.sessionId?.toString() },
-        headers: { 'Content-Type': 'application/json' },
-      })
-      .subscribe((response: any) => {
-        console.log(response);
-        const newMessage = {
-          ...response.message,
-          originalBotResponse: response.message.botResponse,
-          botResponse: '',
-        };
-
-        this.messages = [...this.messages, newMessage];
-
-        this.typeMessage(newMessage);
-
-        this.userMessage = '';
-      });
-  }
-
-  updateMessage(message: any) {
-    if (!this.sessionId || this.sessionId <= 0) {
-      console.error('Invalid session ID: ', this.sessionId);
-      return;
-    }
-
-    this.http
-      .put(
-        `http://localhost:5164/update/${message.id}`,
-        JSON.stringify(message.botResponse),
-        {
-          params: { sessionId: this.sessionId?.toString() },
-          headers: { 'Content-Type': 'application/json' },
-        }
-      )
-      .subscribe({
-        next: () => console.log('Wiadomość zaktualizowana pomyślnie'),
-        error: (err) =>
-          console.error('Błąd podczas aktualizacji wiadomości:', err),
-      });
-  }
-
-  rateMessage(id: number, rating: number) {
-    this.http.put(`http://localhost:5164/rate/${id}`, rating).subscribe({
-      next: () => {
-        const message = this.messages.find((m) => m.id === id);
-        if (message) message.rating = rating;
-      },
+    this.chatService.getChatHistory(this.sessionId).subscribe({
+      next: (data) => (this.messages = data),
+      error: (err) => console.error('Failed to load chat history:', err),
     });
   }
 
-  typeMessage(message: any) {
-    let currentIndex = message.botResponse.length;
+  sendMessage() {
+    if (!this.sessionId) {
+      console.error('Invalid session ID');
+      return;
+    }
+
+    this.chatService.sendMessage(this.sessionId, this.userMessage).subscribe({
+      next: (response) => {
+        console.log(response);
+        const newMessage: ChatMessage = {
+          ...response,
+          originalBotResponse: response.botResponse,
+          botResponse: '',
+        };
+
+        this.messages.push(newMessage);
+        this.typeMessage(newMessage);
+        this.userMessage = '';
+      },
+      error: (err) => console.error('Failed to send message:', err),
+    });
+  }
+
+  updateMessage(message: ChatMessage) {
+    if (!this.sessionId) {
+      console.error('Invalid session ID');
+      return;
+    }
+
+    this.chatService.updateMessage(message.id, message.botResponse).subscribe({
+      next: () => console.log('Message updated successfully'),
+      error: (err) => console.error('Failed to update message:', err),
+    });
+  }
+
+  rateMessage(id: number, rating: number) {
+    this.chatService.rateMessage(id, rating).subscribe({
+      next: () => {
+        const message = this.messages.find((m) => m.id === id);
+
+        if (message) message.rating = rating;
+      },
+      error: (err) => console.error('Failed to rate message:', err),
+    });
+  }
+
+  typeMessage(message: ChatMessage) {
+    let currentIndex = 0;
     const typingSpeed = 15;
 
-    if (this.currentInterval) {
-      clearInterval(this.currentInterval);
-      this.currentInterval = null;
+    if (this.typingInterval) {
+      clearInterval(this.typingInterval);
     }
 
     this.isTypingInProgress = true;
 
-    this.currentInterval = setInterval(() => {
+    this.typingInterval = setInterval(() => {
       if (currentIndex < message.originalBotResponse.length) {
         message.botResponse += message.originalBotResponse[currentIndex];
         currentIndex++;
       } else {
-        clearInterval(this.currentInterval);
-        this.currentInterval = null;
+        clearInterval(this.typingInterval);
+        this.typingInterval = null;
         this.isTypingInProgress = false;
       }
     }, typingSpeed);
   }
 
   interruptTyping() {
-    if (this.currentInterval) {
-      clearInterval(this.currentInterval);
-      this.currentInterval = null;
+    if (this.typingInterval) {
+      clearInterval(this.typingInterval);
     }
-
     this.isTypingInProgress = false;
 
     const lastMessage = this.messages[this.messages.length - 1];
