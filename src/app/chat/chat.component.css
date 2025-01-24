@@ -1,9 +1,33 @@
 mat-card {
-  padding: 2em;
+  display: flex;
+  flex-direction: column;
+  height: 96vh;
+  width: 100%;
+  /* padding: 1em; */
+  padding-top: 1em;
+  box-sizing: border-box;
 }
 
 h1 {
-  align-self: center;
+  text-align: center;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.rated-grayed-out {
+  opacity: 0.3;
+}
+
+.chat-history {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 1em;
+  padding-left: 1em;
 }
 
 .user-output {
@@ -11,24 +35,30 @@ h1 {
   background-color: lightgray;
   padding: 1em;
   border-radius: 1em;
+  margin-bottom: 0.5em;
 }
 
 .bot-output {
-  margin-bottom: 0;
+  margin-bottom: 0.5em;
 }
 
 .like-button {
   size: 24px;
 }
 
+.input-btn {
+  margin: 0 1em 1em;
+}
+
 .user-input {
-  display: grid;
-  padding: 1em;
-  position: sticky;
-  bottom: 0;
-  left: 0;
-  height: auto;
+  display: contents;
+  align-items: center;
+  gap: 0.5em;
   background-color: white;
-  z-index: 1000;
-  overflow: hidden;
+  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+}
+
+mat-form-field {
+  padding-left: 1em;
+  padding-right: 1em;
 }

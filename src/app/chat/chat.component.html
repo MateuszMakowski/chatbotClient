@@ -8,7 +8,7 @@
         class="like-button"
         mat-icon-button
         (click)="rateMessage(message.id, 1)"
-        *ngIf="message.rating !== -1"
+        [ngClass]="message.rating !== -1 ? '' : 'rated-grayed-out'"
       >
         👍
       </button>
@@ -16,31 +16,35 @@
         class="like-button"
         mat-icon-button
         (click)="rateMessage(message.id, -1)"
-        *ngIf="message.rating !== 1"
+        [ngClass]="message.rating !== 1 ? '' : 'rated-grayed-out'"
       >
         👎
       </button>
     </div>
   </div>
+
+  <div class="user-input">
+    <mat-form-field>
+      <input matInput placeholder="Type a message" [(ngModel)]="userMessage" />
+    </mat-form-field>
+    <button
+      class="input-btn"
+      [disabled]="userMessage === ''"
+      mat-raised-button
+      color="primary"
+      (click)="sendMessage()"
+      *ngIf="!isTypingInProgress"
+    >
+      Send
+    </button>
+    <button
+      class="input-btn"
+      mat-raised-button
+      color="accent"
+      (click)="interruptTyping()"
+      *ngIf="isTypingInProgress"
+    >
+      Stop
+    </button>
+  </div>
 </mat-card>
-<div class="user-input">
-  <mat-form-field>
-    <input matInput placeholder="Type a message" [(ngModel)]="userMessage" />
-  </mat-form-field>
-  <button
-    mat-raised-button
-    color="primary"
-    (click)="sendMessage()"
-    *ngIf="!isTypingInProgress"
-  >
-    Send
-  </button>
-  <button
-    mat-raised-button
-    color="accent"
-    (click)="interruptTyping()"
-    *ngIf="isTypingInProgress"
-  >
-    Stop
-  </button>
-</div>

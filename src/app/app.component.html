@@ -1,1 +1,21 @@
-<router-outlet> </router-outlet>
+<mat-sidenav-container class="sidenav-container">
+  <mat-sidenav mode="side" opened class="sidenav">
+    <h3>Chat Sessions</h3>
+    <button mat-raised-button color="primary" (click)="createNewChat()">
+      New Chat
+    </button>
+    <mat-nav-list>
+      <mat-list-item
+        *ngFor="let session of chatSessions"
+        (click)="goToChat(session.id)"
+        [routerLink]="['/chat', session.id]"
+      >
+        {{ session.name }}
+      </mat-list-item>
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="sidenav-content">
+    <router-outlet></router-outlet>
+  </mat-sidenav-content>
+</mat-sidenav-container>

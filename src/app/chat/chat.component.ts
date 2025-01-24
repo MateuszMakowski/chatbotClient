@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatCardModule } from '@angular/material/card';
@@ -8,6 +8,8 @@ import { MatListModule } from '@angular/material/list';
 import { HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-chat',
@@ -25,33 +27,73 @@ import { CommonModule } from '@angular/common';
   templateUrl: './chat.component.html',
   styleUrl: './chat.component.css',
 })
-export class ChatComponent implements OnInit {
+export class ChatComponent implements OnInit, OnDestroy {
   messages: any[] = [];
   userMessage: string = '';
+  sessionId: number | null = null;
+  private routeSub: Subscription | null = null;
+
   private currentInterval: any = null;
   isTypingInProgress: boolean = false;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private route: ActivatedRoute) {}
 
   ngOnInit() {
-    this.loadChatHistory();
-  }
+    this.routeSub = this.route.paramMap.subscribe((params) => {
+      const sessionId = params.get('sessionId');
+      this.sessionId = sessionId ? parseInt(sessionId, 10) : null;
 
-  loadChatHistory() {
-    this.http.get('http://localhost:5164/history').subscribe((data: any) => {
-      this.messages = data;
+      if (this.sessionId) {
+        this.loadChatHistory();
+      } else {
+        console.warn('No session ID provided.');
+      }
     });
   }
 
-  sendMessage() {
+  ngOnDestroy() {
+    // Upewnij się, że subskrypcja jest anulowana
+    if (this.routeSub) {
+      this.routeSub.unsubscribe();
+    }
+  }
+
+  loadChatHistory() {
+    if (!this.sessionId) {
+      console.error('Session ID is missing or invalid');
+      return;
+    }
+
     this.http
-      .post('http://localhost:5164/send', JSON.stringify(this.userMessage), {
+      .get('http://localhost:5164/history', {
+        params: { sessionId: this.sessionId.toString() },
+      })
+      .subscribe(
+        (data: any) => {
+          this.messages = data;
+        },
+        (error) => {
+          console.error('Failed to load chat history:', error);
+        }
+      );
+  }
+
+  sendMessage() {
+    if (!this.sessionId || this.sessionId <= 0) {
+      console.error('Invalid session ID: ', this.sessionId);
+      return;
+    }
+
+    this.http
+      .post(`http://localhost:5164/send`, JSON.stringify(this.userMessage), {
+        params: { sessionId: this.sessionId?.toString() },
         headers: { 'Content-Type': 'application/json' },
       })
       .subscribe((response: any) => {
+        console.log(response);
         const newMessage = {
-          ...response,
-          originalBotResponse: response.botResponse,
+          ...response.message,
+          originalBotResponse: response.message.botResponse,
           botResponse: '',
         };
 
@@ -64,11 +106,17 @@ export class ChatComponent implements OnInit {
   }
 
   updateMessage(message: any) {
+    if (!this.sessionId || this.sessionId <= 0) {
+      console.error('Invalid session ID: ', this.sessionId);
+      return;
+    }
+
     this.http
       .put(
         `http://localhost:5164/update/${message.id}`,
         JSON.stringify(message.botResponse),
         {
+          params: { sessionId: this.sessionId?.toString() },
           headers: { 'Content-Type': 'application/json' },
         }
       )
