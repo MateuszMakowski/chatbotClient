@@ -1,0 +1,46 @@
+<mat-card>
+  <h1>Chat Assistant</h1>
+  <div class="chat-history">
+    <div *ngFor="let message of messages">
+      <p class="user-output"><b>User:</b> {{ message.userMessage }}</p>
+      <p class="bot-output"><b>Bot:</b> {{ message.botResponse }}</p>
+      <button
+        class="like-button"
+        mat-icon-button
+        (click)="rateMessage(message.id, 1)"
+        *ngIf="message.rating !== -1"
+      >
+        👍
+      </button>
+      <button
+        class="like-button"
+        mat-icon-button
+        (click)="rateMessage(message.id, -1)"
+        *ngIf="message.rating !== 1"
+      >
+        👎
+      </button>
+    </div>
+  </div>
+</mat-card>
+<div class="user-input">
+  <mat-form-field>
+    <input matInput placeholder="Type a message" [(ngModel)]="userMessage" />
+  </mat-form-field>
+  <button
+    mat-raised-button
+    color="primary"
+    (click)="sendMessage()"
+    *ngIf="!isTypingInProgress"
+  >
+    Send
+  </button>
+  <button
+    mat-raised-button
+    color="accent"
+    (click)="interruptTyping()"
+    *ngIf="isTypingInProgress"
+  >
+    Stop
+  </button>
+</div>
